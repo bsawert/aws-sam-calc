@@ -44,16 +44,26 @@ const increaseMultiplierMap = new Map( [
     [ 2000, 0.08 ]
 ]);
 
-/* variables for calculation */
-let dateOfBirth, earlyDate, fullDate, delayedDate;
-
 /* get full retirement period for birth year */
 exports.getPeriodForYear = (birthYear) => {
-    let result;
+    let result = { 'years': 0, 'months': 0 };
 
     fullAgeMap.forEach((period, year) => {
         if (year <= birthYear) {
             result = period;
+        }
+    });
+
+    return result;
+}
+
+/* get increase multiplier for birth year */
+exports.getIncreaseMultiplier = (birthYear) => {
+    let result = 0.0;
+
+    increaseMultiplierMap.forEach((multiplier, year) => {
+        if (year <= birthYear) {
+            result = multiplier;
         }
     });
 
@@ -71,4 +81,61 @@ exports.getFullDate = (birthDate) => {
 
 exports.getDelayedDate = (birthDate) => {
     return df.add(birthDate, delayedAgePeriod);
+}
+
+exports.calcEarlyReduction = (birthDate, retireDate) => {
+    let reduction = 0.0;
+    let fullDate = this.getFullDate(birthDate);
+    let earlyDate = this.getEarlyDate(birthDate);
+
+    if (df.isBefore(retireDate, earlyDate)) {
+        // 100% reduction
+        reduction = 1.0;
+    } else if (df.isAfter(retireDate, fullDate)) {
+        // no reduction
+        reduction = 0.0;
+    } else {
+        // partial reduction
+        let months = df.differenceInMonths(fullDate, retireDate);
+        if (months < reductionMonths) {
+            // up to 36 months * multiplier
+            reduction = months * first36Multiplier;
+        } else {
+            // over 36 months * multiplier
+            reduction = reductionMonths * first36Multiplier + (months - reductionMonths) * over36Multiplier;
+        }
+    }
+
+    return reduction;
+}
+
+exports.calcDelayIncrease = (birthDate, retireDate) => {
+    let increase = 0.0;
+    let fullDate = this.getFullDate(birthDate);
+    let delayedDate = this.getDelayedDate(birthDate);
+    let yearOfBirth = birthDate.getFullYear();
+    let increaseMultiplier = this.getIncreaseMultiplier(yearOfBirth);
+
+    if (df.isBefore(retireDate, fullDate)) {
+        // no increase
+        increase = 0.0;
+    } else if (df.isBefore(retireDate, delayedDate)) {
+        // partial increase
+        let months = df.differenceInMonths(retireDate, fullDate);
+        increase = (months / 12.0) * increaseMultiplier;
+    } else {
+        // capped increase
+        let months = df.differenceInMonths(delayedDate, fullDate);
+        increase = (months / 12.0) * increaseMultiplier;
+    }
+
+    return increase;
+}
+
+exports.calcTotalAdjustment = (birthDate, retireDate) => {
+    let adjustment = 1.0
+        - this.calcEarlyReduction(birthDate, retireDate)
+        + this.calcDelayIncrease(birthDate, retireDate);
+
+    return adjustment;
 }

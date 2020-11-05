@@ -18,18 +18,21 @@ let response;
  * 
  */
 exports.lambdaHandler = async (event, context) => {
-    console.log(event.queryStringParameters);
-    let args = event.queryStringParameters;
-    let birthDate = df.parseISO(args.birthDate);
-    console.log('---> ' + birthDate);
-    let dates = {
-        early: ages.getEarlyDate(birthDate),
-        full: ages.getFullDate(birthDate),
-        delayed: ages.getDelayedDate(birthDate)
-    }
-
     try {
-        // const ret = await axios(url);
+        let args = event.queryStringParameters;
+        console.log('---> ' + args);
+        let birthDate = df.parseISO(args.birthDate);
+        console.log('---> ' + birthDate);
+        let retireDate = df.parseISO(args.retireDate);
+        console.log('---> ' + retireDate);
+        let dates = {
+            early: ages.getEarlyDate(birthDate),
+            full: ages.getFullDate(birthDate),
+            delayed: ages.getDelayedDate(birthDate)
+        }
+
+        let reduction = ages.calcEarlyReduction(birthDate, retireDate);
+
         response = {
             'statusCode': 200,
             'body': JSON.stringify(dates)
